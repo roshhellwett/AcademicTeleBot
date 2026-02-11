@@ -9,7 +9,7 @@ import urllib3
 from utils.hash_util import generate_hash
 from core.sources import URLS
 from scraper.date_extractor import extract_date
-from scraper.pdf_processor import get_date_from_pdf  # New logic
+from scraper.pdf_processor import get_date_from_pdf
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger = logging.getLogger("SCRAPER")
@@ -39,7 +39,6 @@ def build_item(title, url, source_name, date_context=None):
     
     title_lower = title.strip().lower()
 
-    # Filters based on your previous logs and screenshots
     if any(k in title_lower for k in STRICT_BLOCKLIST):
         return None
         
@@ -54,18 +53,19 @@ def build_item(title, url, source_name, date_context=None):
         return None
 
     # --- DATE EXTRACTION LOGIC ---
-    # 1. Try Title and Context first
     real_date = extract_date(title)
     if not real_date and date_context:
         real_date = extract_date(date_context)
 
-    # 2. Deep PDF Scan if still no date
     is_pdf = ".pdf" in url.lower()
     if is_pdf and not real_date:
         logger.info(f"Deep scanning PDF for date: {title}")
         real_date = get_date_from_pdf(url)
 
-    # 3. Fallback to current time if all else fails
+    # --- YEAR FILTER: Ignore legacy notices pre-2024 ---
+    if real_date and real_date.year < 2024:
+        return None
+
     if not real_date:
         real_date = datetime.utcnow()
 
