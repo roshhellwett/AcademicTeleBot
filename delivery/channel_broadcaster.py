@@ -9,7 +9,7 @@ logger = logging.getLogger("CHANNEL_BROADCAST")
 
 BASE_DELAY = 1.0
 MAX_DELAY = 10.0
-MAX_RETRIES = 5  # Stop trying to send a specific message after 5 fails
+MAX_RETRIES = 5
 
 async def broadcast_channel(messages):
     bot = get_bot()
@@ -32,11 +32,12 @@ async def broadcast_channel(messages):
                 await bot.send_message(
                     chat_id=CHANNEL_ID,
                     text=msg,
+                    parse_mode="HTML",  # <--- THIS IS THE FIX FOR THE BROKEN TEXT
                     disable_web_page_preview=True
                 )
 
                 sent += 1
-                delay = max(BASE_DELAY, delay * 0.9) # Recover speed
+                delay = max(BASE_DELAY, delay * 0.9)
                 await asyncio.sleep(delay)
                 break
 
@@ -44,7 +45,6 @@ async def broadcast_channel(messages):
                 wait = int(e.retry_after)
                 logger.warning(f"Flood wait {wait}s")
                 await asyncio.sleep(wait)
-                # Do not increment retries for FloodWait, just wait it out
 
             except (TimedOut, NetworkError):
                 retries += 1

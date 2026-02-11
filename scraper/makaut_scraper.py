@@ -6,6 +6,7 @@ import logging
 import time
 from urllib.parse import urljoin
 import urllib3
+import re
 
 from core.sources import URLS
 from scraper.date_extractor import extract_date
@@ -21,27 +22,61 @@ SESSION.headers.update({
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 })
 
+# 1. STRICT BLOCKLIST: Always ignore these (Strict Junk)
+STRICT_BLOCKLIST = [
+    "about us", "contact", "directory", "staff", "genesis", "vision", 
+    "mission", "campus", "library", "login", "register", "sitemap", 
+    "disclaimer", "university", "chancellor", "vice-chancellor", "registrar",
+    "convocation", "antiragging", "rti", "forms", "archive", "tenders",
+    "defaulter", "ordinance", "statutes", "officers", "recognition"
+]
+
+# 2. AMBIGUOUS TERMS: Block ONLY if they appear as short "Menu Buttons"
+MENU_BUTTON_TERMS = [
+    "administration", "committees", "affiliated", "academics", 
+    "rules", "regulations", "right to information", "governance", "act"
+]
+
 def generate_hash(title, url):
     return hashlib.sha256(f"{title}{url}".encode()).hexdigest()
 
-def build_item(title, url, source_name):
+def build_item(title, url, source_name, date_context=None):
     if not title or not url:
         return None
+    
+    title_lower = title.strip().lower()
+
+    # --- FILTER LEVEL 1: Strict Junk ---
+    if any(k in title_lower for k in STRICT_BLOCKLIST):
+        return None
         
-    # Filter junk links
+    # --- FILTER LEVEL 2: Menu Button Detection ---
+    # If title has a "Menu Word" AND is very short (< 25 chars), block it.
+    if any(k in title_lower for k in MENU_BUTTON_TERMS):
+        if len(title) < 25: 
+            return None
+
+    # --- FILTER LEVEL 3: General sanity check ---
+    if len(title) < 5:
+        return None
+
     if any(x in url.lower() for x in ["javascript", "mailto", "tel:", "#"]):
         return None
 
+    # --- DATE EXTRACTION ---
     real_date = extract_date(title)
-    pub_date = real_date if real_date else datetime.utcnow()
+    if not real_date and date_context:
+        real_date = extract_date(date_context)
+
+    is_pdf = ".pdf" in url.lower()
 
     return {
         "title": title.strip(),
         "source": source_name,
         "source_url": url,
-        "pdf_url": url if ".pdf" in url.lower() else None,
+        "pdf_url": url if is_pdf else None,
         "content_hash": generate_hash(title, url),
-        "published_date": pub_date,
+        "published_date": real_date,
         "scraped_at": datetime.utcnow()
     }
 
@@ -52,34 +87,40 @@ def parse_generic_links(base_url, source_name):
     # MAKAUT Exam portal often has SSL issues
     verify_ssl = False if "makautexam" in base_url else True
     
-    # Allow loose validation for exam portal
     try:
         r = SESSION.get(base_url, timeout=30, verify=verify_ssl)
         r.raise_for_status()
 
         soup = BeautifulSoup(r.text, "html.parser")
         
-        tags = soup.find_all("a")
+        # HTML HELPER: Try to find the 'main' content to avoid header/footer menus
+        main_body = soup.find("div", {"id": "content"}) or soup.find("div", class_="content") or soup.find("table") or soup
+        
+        tags = main_body.find_all("a")
         
         for a in tags:
             title = a.get_text(" ", strip=True)
             href = a.get("href")
 
-            if not title or len(title) < 5 or not href:
+            if not title or not href:
                 continue
 
             full_url = urljoin(base_url, href)
 
-            # Relaxed check: just ensure it has http/https
             if not full_url.startswith(("http:", "https:")):
                 continue
+            
+            # Context Extraction: Get text from the parent line
+            context_text = ""
+            if a.parent:
+                context_text = a.parent.get_text(" ", strip=True)
 
             h = generate_hash(title, full_url)
             if h in seen:
                 continue
             seen.add(h)
 
-            item = build_item(title, full_url, source_name)
+            item = build_item(title, full_url, source_name, context_text)
             if item:
                 data.append(item)
 
