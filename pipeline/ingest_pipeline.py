@@ -24,9 +24,8 @@ async def start_pipeline():
 
             items = scrape_all_sources()
 
-            logger.info(f"SCRAPED {len(items)} ITEMS")
-
             if not items:
+                logger.warning("NO ITEMS SCRAPED")
                 await asyncio.sleep(SCRAPE_INTERVAL)
                 continue
 
@@ -42,7 +41,10 @@ async def start_pipeline():
 
                 h = item.get("content_hash")
 
-                if not h or h in existing_hashes:
+                if not h:
+                    continue
+
+                if h in existing_hashes:
                     continue
 
                 item.setdefault("scraped_at", datetime.utcnow())
@@ -51,8 +53,8 @@ async def start_pipeline():
                 notif = Notification(**item)
 
                 db.add(notif)
-                new_notifications.append(item)
 
+                new_notifications.append(item)
                 existing_hashes.add(h)
 
             if new_notifications:
@@ -61,6 +63,7 @@ async def start_pipeline():
             logger.info(f"PIPELINE STORED {len(new_notifications)} NEW")
 
             if new_notifications:
+                logger.info("BROADCASTING NEW NOTIFICATIONS")
                 await broadcast(new_notifications)
 
         except Exception as e:

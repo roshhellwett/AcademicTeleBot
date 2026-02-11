@@ -11,11 +11,11 @@ _app = None
 
 def get_bot():
     if _app is None:
-        raise RuntimeError("Bot not ready")
+        raise RuntimeError("Telegram not initialized")
     return _app.bot
 
 
-def build_app():
+async def init_telegram():
     global _app
 
     logger.info("BUILDING TELEGRAM APP")
@@ -26,4 +26,17 @@ def build_app():
 
     logger.info("HANDLERS REGISTERED")
 
-    return _app
+
+async def start_telegram():
+    global _app
+
+    logger.info("STARTING TELEGRAM")
+
+    await _app.initialize()
+    await _app.start()
+    await _app.bot.initialize()
+
+    # START POLLING MANUALLY (SAFE)
+    await _app.updater.start_polling()
+
+    logger.info("TELEGRAM BOT READY")

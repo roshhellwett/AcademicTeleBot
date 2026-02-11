@@ -4,39 +4,42 @@ import logging
 from database.db import SessionLocal
 from database.models import Subscriber
 from bot.telegram_app import get_bot
-from pipeline.message_formatter import format_message
 
 logger = logging.getLogger("BROADCASTER")
 
 
 async def broadcast(notifications):
 
-    # Wait until telegram ready
-    while True:
-        try:
-            bot = get_bot()
-            break
-        except:
-            logger.info("WAITING TELEGRAM READY...")
-            await asyncio.sleep(2)
+    bot = get_bot()
 
     db = SessionLocal()
 
-    users = db.query(Subscriber).filter_by(active=True).all()
+    subs = db.query(Subscriber).filter_by(active=True).all()
+
+    if not subs:
+        logger.warning("NO SUBSCRIBERS FOUND")
+        db.close()
+        return
 
     success = 0
     failed = 0
 
     for n in notifications:
 
-        msg = format_message(n)
+        message = (
+            "🎓 MAKAUT NEW NOTIFICATION\n\n"
+            f"📌 {n['title']}\n\n"
+            f"🏛 Source: {n['source']}\n"
+            f"🔗 {n['source_url']}\n\n"
+            "━━━━━━━━━━━━━━\n"
+            "TeleAcademic Bot"
+        )
 
-        for u in users:
-
+        for sub in subs:
             try:
                 await bot.send_message(
-                    chat_id=u.telegram_id,
-                    text=msg,
+                    chat_id=sub.telegram_id,
+                    text=message,
                     disable_web_page_preview=True
                 )
 
@@ -45,7 +48,7 @@ async def broadcast(notifications):
 
             except Exception as e:
                 failed += 1
-                logger.error(f"SEND FAIL {u.telegram_id} {e}")
+                logger.error(f"FAIL {sub.telegram_id} {e}")
 
     db.close()
 
