@@ -16,10 +16,11 @@ logger = logging.getLogger("MAIN")
 async def main():
     """
     Main entry point for the TeleAcademic System.
-    Orchestrates the Triple-Bot architecture:
-    1. Broadcast Bot (Channel updates)
-    2. Search Bot (Student queries)
-    3. Admin Bot (Script updates & management)
+    Orchestrates: 
+    1. Broadcast Bot
+    2. Search Bot
+    3. Admin Bot
+    4. Scraper Pipeline
     """
     logger.info("🚀 TELEACADEMIC TRIPLE-BOT SYSTEM STARTING")
 
@@ -31,8 +32,7 @@ async def main():
         logger.critical(f"DATABASE INIT FAILED: {e}")
         sys.exit(1)
 
-    # 2. Start Broadcast Bot (Channel Bot)
-    # This bot usually runs in the foreground of the loop or as a primary task
+    # 2. Start Broadcast Bot (Primary Task)
     try:
         await start_telegram()
         logger.info("BROADCAST BOT INITIALIZED")
@@ -40,38 +40,21 @@ async def main():
         logger.critical(f"BROADCAST BOT START FAILED: {e}")
         sys.exit(1)
 
-    # 3. Start Search Bot Task
-    # Runs in the background to handle student searches
-    try:
-        asyncio.create_task(start_search_bot()) 
-        logger.info("SEARCH BOT TASK INITIALIZED")
-    except Exception as e:
-        logger.error(f"SEARCH BOT START FAILED: {e}")
+    # 3. Launch all background tasks
+    logger.info("STARTING BACKGROUND SERVICES...")
+    
+    # Gathering tasks ensures the script stays alive until all tasks finish
+    tasks = [
+        asyncio.create_task(start_search_bot()),
+        asyncio.create_task(start_admin_bot()),
+        asyncio.create_task(start_pipeline())
+    ]
 
-    # 4. Start Admin Bot Task (The Script Updater)
-    # Runs in the background to handle private /update and /backup commands
     try:
-        asyncio.create_task(start_admin_bot()) 
-        logger.info("ADMIN UPDATER BOT TASK INITIALIZED")
+        # The script will now wait for all tasks to complete or fail
+        await asyncio.gather(*tasks)
     except Exception as e:
-        logger.error(f"ADMIN BOT START FAILED: {e}")
-
-    # 5. Start Scraper Pipeline Task
-    # Periodically checks for new notices and triggers broadcasts
-    try:
-        pipeline_task = asyncio.create_task(start_pipeline())
-        logger.info("SCRAPER PIPELINE INITIALIZED")
-    except Exception as e:
-        logger.critical(f"PIPELINE START FAILED: {e}")
-        sys.exit(1)
-
-    logger.info("SYSTEM FULLY OPERATIONAL")
-
-    # Keep the main loop running by awaiting the pipeline task
-    try:
-        await pipeline_task
-    except Exception as e:
-        logger.critical(f"SYSTEM CRASHED: {e}")
+        logger.critical(f"SYSTEM CRITICAL FAILURE: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

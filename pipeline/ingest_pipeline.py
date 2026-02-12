@@ -31,25 +31,24 @@ async def start_pipeline():
             
             all_scraped_items = []
             
-            # --- GLOBAL THROTTLER LOGIC ---
-            # Scrape each university source one by one with a safety delay.
+            # --- GLOBAL THROTTLER LOGIC (AI-FREE OPTIMIZED) ---
+            # Scrape each university source one by one.
             for key, config in URLS.items():
                 logger.info(f"SCRAPING SOURCE: {key}")
                 source_data = scrape_source(key, config)
                 all_scraped_items.extend(source_data)
                 
-                # UPDATED: 20-second delay between sources to avoid Gemini 429 errors
-                # and ensure university servers don't flag the bot.
-                await asyncio.sleep(20) 
+                # Reduced to 2 seconds because Gemini 429 errors are no longer a risk.
+                # This keeps the bot fast but polite to university servers.
+                await asyncio.sleep(2) 
 
             if not all_scraped_items:
-                logger.info("No items found in this cycle.")
+                logger.info("No 2026 items found in this cycle.")
                 await asyncio.sleep(int(SCRAPE_INTERVAL))
                 continue
 
             # --- CHRONOLOGICAL SORT ---
             # Sort items by published_date (Oldest to Newest).
-            # This ensures oldest items get lower IDs in DB and are sent first.
             all_scraped_items.sort(key=lambda x: x['published_date'])
 
             db = SessionLocal()
@@ -75,7 +74,7 @@ async def start_pipeline():
                 new_notifications.append(item)
                 existing_hashes.add(h)
 
-            logger.info(f"NEW NOTIFICATIONS DISCOVERED: {len(new_notifications)}")
+            logger.info(f"NEW 2026 NOTIFICATIONS DISCOVERED: {len(new_notifications)}")
 
             if not new_notifications:
                 db.close()
@@ -94,7 +93,7 @@ async def start_pipeline():
             else:
                 msgs_to_send = [format_message(n) for n in new_notifications]
 
-            # 1. BROADCAST FIRST (HTML Mode)
+            # 1. BROADCAST FIRST
             if msgs_to_send:
                 await broadcast_channel(msgs_to_send)
 

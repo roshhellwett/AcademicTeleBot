@@ -31,9 +31,4 @@ except ValueError:
     SCRAPE_INTERVAL = 300
     ADMIN_ID = 0
 
-# ==============================
-# GEMINI API KEY (Single Key Logic)
-# ==============================
-# Ensure this matches exactly what pdf_processor.py expects to import
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "") 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
