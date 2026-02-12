@@ -16,13 +16,15 @@ logger = logging.getLogger("MAIN")
 async def main():
     logger.info("🚀 TELEACADEMIC QUAD-BOT SYSTEM STARTING")
 
+    # 1. Database Initialization (Updated to Async)
     try:
-        init_db()
+        await init_db() # Added await here for the new async init
         logger.info("DATABASE TABLES VERIFIED")
     except Exception as e:
         logger.critical(f"DATABASE INIT FAILED: {e}")
         sys.exit(1)
 
+    # 2. Start Broadcast Bot
     try:
         await start_telegram()
         logger.info("BROADCAST BOT INITIALIZED")
@@ -30,9 +32,9 @@ async def main():
         logger.critical(f"BROADCAST BOT START FAILED: {e}")
         sys.exit(1)
 
+    # 3. Launch background services
     logger.info("STARTING BACKGROUND SERVICES...")
     
-    # FIX: Staggered task creation to prevent network timeouts
     try:
         search_task = asyncio.create_task(start_search_bot())
         await asyncio.sleep(2)

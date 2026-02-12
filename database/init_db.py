@@ -1,8 +1,21 @@
+import asyncio
+import logging
 from database.db import Base, engine
-# MUST import models here so they register with Base.metadata
 from database import models 
 
-def init_db():
-    print("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    print("DATABASE TABLES CREATED / VERIFIED")
+logger = logging.getLogger("DATABASE_INIT")
+
+async def init_db():
+    """
+    Supreme Async Init:
+    Uses run_sync to allow the AsyncEngine to create tables.
+    """
+    logger.info("Verifying database tables...")
+    try:
+        async with engine.begin() as conn:
+            # run_sync is required to bridge the async engine with sync metadata
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("DATABASE TABLES CREATED / VERIFIED")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise e

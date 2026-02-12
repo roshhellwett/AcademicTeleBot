@@ -1,37 +1,29 @@
 import re
-
-# Comprehensive list of inappropriate patterns
-# Includes common abuses, NSFW keywords, and suspicious link patterns
-INAPPROPRIATE_KEYWORDS = [
-    r"(?i)\b(abuse1|abuse2|slang1)\b", # Add specific abusive words here
-    r"(?i)\b(porn|sex|dating|casino|bet|crypto-earn)\b",
-]
-
-# Patterns for suspicious/spam links (non-educational)
-SPAM_LINK_PATTERNS = [
-    r"t\.me/joinchat", # Prevents invite link spam
-    r"bit\.ly", r"goo\.gl", r"t\.co", # Shortened links often used for phishing
-    r"(?i).*(whatsapp\.com/join).*",
-]
+import unicodedata
+from group_bot.word_list import BANNED_WORDS, SPAM_DOMAINS
 
 def is_inappropriate(text: str) -> (bool, str):
     """
-    Checks if a message is abusive or contains inappropriate links.
-    Returns (True, Reason) if caught, else (False, None).
+    Zenith Multi-lingual forensic scan.
+    Handles English, Hindi, and Bengali scripts simultaneously. [cite: 41, 42]
     """
     if not text:
         return False, None
 
-    # 1. Check for Abuses/NSFW
-    for pattern in INAPPROPRIATE_KEYWORDS:
-        if re.search(pattern, text):
-            return True, "Abusive/Inappropriate Language"
+    # Normalization to catch variants and fix encoding artifacts 
+    normalized_text = unicodedata.normalize("NFKD", text).lower()
+    
+    # Forensic Abuse Detection using Word Boundaries
+    # This prevents accidental deletion of innocent words 
+    abuse_pattern = r"(?i)\b(" + "|".join(re.escape(word) for word in BANNED_WORDS) + r")\b"
+    
+    if re.search(abuse_pattern, normalized_text):
+        return True, "Abusive/Inappropriate Language"
 
-    # 2. Check for Spam Links
-    # Allow university links but block generic spam
-    if "makaut" not in text.lower():
-        for pattern in SPAM_LINK_PATTERNS:
-            if re.search(pattern, text):
+    # Smart Link Protection 
+    if "makaut" not in normalized_text:
+        for domain in SPAM_DOMAINS:
+            if domain in normalized_text:
                 return True, "Unauthorized/Suspicious Link"
 
     return False, None
