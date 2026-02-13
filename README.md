@@ -1,4 +1,3 @@
-# 🎓 AcademicTeleBot  
 ## Enterprise Academic Intelligence & Moderation Infrastructure
 
 **AcademicTeleBot** is a distributed, production-grade academic automation ecosystem engineered for **high-volume student networks**, **real-time institutional intelligence**, and **autonomous moderation at scale**.
