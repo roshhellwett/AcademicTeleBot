@@ -1,7 +1,7 @@
 import re
 import unicodedata
 from datetime import datetime
-from core.config import TARGET_YEAR
+from core.config import TARGET_YEARS
 
 # EXPANDED PATTERN: Matches "12-02-2026", "12 Feb 2026", "12th February 2026"
 DATE_PATTERN = r"(?i)(\d{1,2})(?:st|nd|rd|th)?[\s\-\/\.]*([a-z]{3,10}|\d{1,2})[\s\-\/\.]*(\d{2,4})"
@@ -38,9 +38,8 @@ def extract_date(text: str):
 
             dt = datetime(int(year), m_num, int(day))
 
-            # TARGET CHECK: Accept Current Year AND Previous Year (Academic Window)
-            # Example: In 2026, we accept 2026 and 2025.
-            if dt.year in [TARGET_YEAR, TARGET_YEAR - 1]:
+            # TARGET CHECK: Check against the list of valid years
+            if dt.year in TARGET_YEARS:
                 return dt
 
         except ValueError:

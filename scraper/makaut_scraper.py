@@ -22,7 +22,6 @@ USER_AGENTS = [
 ]
 
 # CIRCUIT BREAKER STATE
-# Tracks failures per source to prevent infinite error loops
 source_health = {}
 MAX_FAILURES = 3
 COOLDOWN_SECONDS = 1800  # 30 Minutes
@@ -103,14 +102,13 @@ async def scrape_source(source_key, source_config):
     # --- CIRCUIT BREAKER CHECK ---
     health = source_health.get(source_key, {"fails": 0, "next_try": 0})
     if time.time() < health["next_try"]:
-        # Silently skip to keep logs clean
         return []
 
     headers = {"User-Agent": random.choice(USER_AGENTS)}
     verify = not any(domain in source_config["url"] for domain in SSL_VERIFY_EXEMPT)
     
     try:
-        await asyncio.sleep(random.uniform(2, 5)) # Polite Delay
+        await asyncio.sleep(random.uniform(2, 5)) 
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT, verify=verify, follow_redirects=True) as client:
             r = await client.get(source_config["url"], headers=headers)
             r.raise_for_status()
@@ -124,7 +122,6 @@ async def scrape_source(source_key, source_config):
                 item = await build_item(raw, source_config["source"])
                 if item: valid_items.append(item)
 
-            # Success! Reset circuit breaker
             source_health[source_key] = {"fails": 0, "next_try": 0}
             
             if valid_items:
@@ -132,10 +129,8 @@ async def scrape_source(source_key, source_config):
             return valid_items
 
     except Exception as e:
-        # Failure! Update circuit breaker
         fails = health["fails"] + 1
         wait_time = 0
-        
         if fails >= MAX_FAILURES:
             wait_time = COOLDOWN_SECONDS
             logger.error(f"❌ {source_key} BROKEN: {e}. Cooling down for {wait_time}s.")
