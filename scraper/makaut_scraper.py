@@ -22,7 +22,7 @@ USER_AGENTS = [
 async def build_item(title, url, source_name, date_context=None):
     if not title or not url: return None
     
-    # Forensic noise reduction [cite: 33]
+    # Forensic noise reduction
     BLOCKLIST = ["about us", "contact", "home", "back", "gallery"]
     if any(k in title.lower() for k in BLOCKLIST): return None
 
@@ -33,7 +33,8 @@ async def build_item(title, url, source_name, date_context=None):
     if not real_date and ".pdf" in url.lower():
         real_date = await get_date_from_pdf(url)
 
-    if real_date and real_date.year == TARGET_YEAR:
+    # FIX: Allow Academic Year Window (Current & Previous Year)
+    if real_date and real_date.year in [TARGET_YEAR, TARGET_YEAR - 1]:
         return {
             "title": title.strip(),
             "source": source_name,
@@ -43,6 +44,13 @@ async def build_item(title, url, source_name, date_context=None):
             "published_date": real_date,
             "scraped_at": datetime.utcnow()
         }
+    
+    # DEBUG: Log rejected items to help verify scraper is running
+    if real_date:
+        logger.debug(f"⚠️ Skipped (Old Date): {title} ({real_date.strftime('%Y-%m-%d')})")
+    else:
+        logger.debug(f"⚠️ Skipped (No Date): {title}")
+        
     return None
 
 async def scrape_source(source_key, source_config):
@@ -59,11 +67,19 @@ async def scrape_source(source_key, source_config):
             # Context-aware scraping
             items = []
             container = soup.find("div", {"id": "content"}) or soup.find("table") or soup
-            for a in container.find_all("a", href=True):
+            
+            raw_links = container.find_all("a", href=True)
+            logger.info(f"🔎 Scanning {source_key}: Found {len(raw_links)} raw links...")
+
+            for a in raw_links:
                 full_url = urljoin(source_config["url"], a["href"])
                 item = await build_item(a.get_text(strip=True), full_url, source_config["source"], a.parent.get_text())
                 if item: items.append(item)
+            
+            if items:
+                logger.info(f"✅ {source_key}: Extracted {len(items)} valid notices.")
             return items
+            
     except Exception as e:
         logger.error(f"Source Failure {source_key}: {e}")
         return []

@@ -25,7 +25,11 @@ def extract_date(text: str):
         for fmt in ("%d/%m/%Y", "%d/%m/%y", "%d/%b/%Y"):
             try:
                 dt = datetime.strptime(normalized, fmt)
-                if dt.year == TARGET_YEAR:
+                
+                # FIX: Relaxed Year Check
+                # Accepts current year (2026) AND previous year (2025)
+                # This catches "Dec 2025" exams that are still relevant.
+                if dt.year in [TARGET_YEAR, TARGET_YEAR - 1]:
                     return dt
             except ValueError:
                 continue
