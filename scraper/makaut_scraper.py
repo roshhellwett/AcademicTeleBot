@@ -53,7 +53,7 @@ def _parse_html_sync(html_content, source_config):
             
     return items
 
-    async def build_item(raw_data, source_name):
+async def build_item(raw_data, source_name):
     """Async Processor for individual items."""
     title = raw_data["text"]
     url = raw_data["url"]
